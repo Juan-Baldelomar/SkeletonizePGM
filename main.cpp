@@ -11,7 +11,9 @@ int main() {
     ImgProcessing imgP;
     imgP.getSkeleton(image.pixels);
     imgP.getPoints(image.pixels);
-    cout << imgP.lines.size() << endl;
+    imgP.printLines();
+    imgP.DecimateLines(0.001);
+    imgP.printLines();
     imgP.drawLines(image.pixels);
     image.writeFile("Output/img1.pgm");
     return 0;

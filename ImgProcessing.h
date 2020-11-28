@@ -54,8 +54,10 @@ public:
     void getSkeleton(vector<vector<pixel>> &pixels);
     void getPoints(vector<vector<pixel>> &pixels);
     void drawLines(vector<vector<pixel>> &pixels);
+    void printLines();
     line DouglasPeucker(line &l, double epsilon);
-    void splitLine(line &l, line &l1, line &l2, int split_index);
+    void DecimateLines(double epsilon);
+    void splitLine(line &l, line &l1, line &l2, int start, int split_index, int end);
     void mergeLine(line &l1, line &l2, line &result);
 };
 

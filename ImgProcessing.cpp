@@ -13,6 +13,14 @@ double perpendicularDistance(point p, point q){
     return sqrt(delta_x*delta_x + delta_y*delta_y);
 }
 
+void cleanPixels(vector<vector<pixel>>&pixels){
+    int n = pixels.size(), m = 0;
+    if (n>0) m = pixels[0].size();
+    for (int i = 0; i<n; i++)
+        for (int j = 0; j<m; j++)
+            pixels[i][j] = 0;
+}
+
 void Pattern::setValues(pixel values[3][3]) {
     for (int i = 0; i<3; i++)
         for (int j = 0; j<3; j++)
@@ -253,10 +261,31 @@ int ImgProcessing::pushNeighbors(point center, vector<vector<pixel>> &pixels, qu
 
 // function to draw the lines that are in the vector<vector<line>> lines
 void ImgProcessing::drawLines(vector<vector<pixel>> &pixels) {
+    cleanPixels(pixels);
     for (auto l : lines){
         for (auto p:l){
             pixels[p.x][p.y]=255;
         }
+    }
+}
+
+void ImgProcessing::printLines() {
+    cout << "-------------- PRINTING LINES --------------" << endl;
+    for (auto l: lines){
+        for (auto p:l){
+            cout << "(" << p.x << ", " << p.y << ") \t";
+        }
+        cout << endl;
+    }
+}
+
+void ImgProcessing::DecimateLines(double epsilon) {
+    int n = lines.size();
+    for (int i = 0; i<n; i++){
+        line l = DouglasPeucker(lines[i], epsilon);
+        lines[i].clear();
+        for (auto p: l)
+            lines[i].push_back(p);
     }
 }
 
@@ -277,20 +306,25 @@ line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
     line ResultLine;
     if (dmax > epsilon){
         line RL1, RL2;
-        splitLine(l, RL1, RL2, index);
+        splitLine(l, RL1, RL2, 1, index, n);
+
+        RL1 = DouglasPeucker(RL1, epsilon);
+        RL2 = DouglasPeucker(RL2, epsilon);
+
         mergeLine(RL1, RL2, ResultLine);
     }else{
-        return l;
+        for (auto p:l)
+            ResultLine.push_back(p);
     }
     return ResultLine;
 }
 
-void ImgProcessing::splitLine(line &l,  line &l1, line &l2, int split_index) {
+void ImgProcessing::splitLine(line &l,  line &l1, line &l2, int start, int split_index, int end) {
     int n = l.size();
-    for (int i = 0; i<split_index; i++)
+    for (int i = start; i<split_index; i++)
         l1.push_back(l[i]);
 
-    for (int i = split_index; i<n; i++)
+    for (int i = split_index; i<end && i < n; i++)
         l2.push_back(l[i]);
 }
 
