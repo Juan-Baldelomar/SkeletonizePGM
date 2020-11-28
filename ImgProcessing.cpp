@@ -4,6 +4,14 @@
 
 #include "ImgProcessing.h"
 #include "Tools.h"
+#include "math.h"
+
+
+double perpendicularDistance(point p, point q){
+    double delta_x = p.x - q.x;
+    double delta_y = p.y - q.y;
+    return sqrt(delta_x*delta_x + delta_y*delta_y);
+}
 
 void Pattern::setValues(pixel values[3][3]) {
     for (int i = 0; i<3; i++)
@@ -18,9 +26,7 @@ void specialPattern::setValues(pixel values[4][4]) {
 }
 
 
-Pattern::Pattern() {
-
-}
+Pattern::Pattern() {}
 
 // build Pattern for a pixel
 Pattern::Pattern(int i_c, int j_c, vector<vector<pixel>> &pixels) {
@@ -175,18 +181,126 @@ void ImgProcessing::getSkeleton(vector<vector<pixel>> &pixels){
     }while (flag);
 }
 
-void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
-    // create queue
-    // find first pixel != 0
-    // push point in queue
-    // start traversing line following 255 values and setting to 0 values already traversed
-        //if a pixel has more than one neighbor  with 255 we reached biffurcation, push all neighbors to queue and set current point as end
-    // repeat until al pixels == 0
+vector<vector<pixel>> ImgProcessing::extractPixels(vector<vector<pixel>> &pixels) {
+    int n = pixels.size(), m = 0;
+    if (n>0) m = pixels[0].size();
+    vector<vector<pixel>> copy(n, vector<pixel>(m, 0));
+
+    for (int i = 0; i<n; i++)
+        for (int j = 0; j<m; j++)
+            copy[i][j] = pixels[i][j];
+
+    return copy;
 }
 
+void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
+    int n = pixels.size(), m = 0;
+    if (n>0) m = pixels[0].size();
 
+    //clean previous points
+    lines.clear();
 
+    //create copy of pixels to work with
+    vector<vector<pixel>> pixelsCopy = extractPixels(pixels);
 
+    // create queue
+    queue<point> cola;
+
+    // find first pixel != 0
+    for (int i = 0; i<n; i++){
+        for (int j = 0; j<m; j++){
+            if (pixelsCopy[i][j] == 255){
+                lines.push_back(line());                 // push new line
+                cola.push(point(i, j));               // push point in queue
+                pixelsCopy[i][j] = 0;                    // erase point to avoid processing it again
+            }
+            while(!cola.empty()){
+                point p = cola.front();
+                lines.back().push_back(p);
+
+                int neighborsCount = pushNeighbors(p, pixelsCopy, cola);
+                if (neighborsCount > 1){                // biffurcation reached
+                    lines.push_back(line());            // create new line
+                }
+                cola.pop();
+            }
+        }
+    }
+
+    // start traversing line following 255 values and setting to 0 values already traversed
+        //if a pixel has more than one neighbor  with 255 we reached biffurcation, push all neighbors to queue and set current point as end
+}
+
+int ImgProcessing::pushNeighbors(point center, vector<vector<pixel>> &pixels, queue<point> &cola) {
+    int n = pixels.size(), m = 0;
+    if (n>0) m = pixels[0].size();
+
+    int neighborsCount = 0;
+    // review 8_neighbors
+    for (int i = -1; i<=1; i++){
+        for (int j = -1; j<=1; j++){
+            if (i + center.x >= 0 && i+center.x < n && j + center.y >= 0 && j+center.y < m
+                && pixels[i + center.x][j + center.y] == 255){
+
+                cola.push(point(i+center.x, j+center.y));
+                neighborsCount++;
+                pixels[i+center.x][j+center.y] = 0;                        // erase point to avoid processing it again
+            }
+        }
+    }
+    return neighborsCount;
+}
+
+// function to draw the lines that are in the vector<vector<line>> lines
+void ImgProcessing::drawLines(vector<vector<pixel>> &pixels) {
+    for (auto l : lines){
+        for (auto p:l){
+            pixels[p.x][p.y]=255;
+        }
+    }
+}
+
+line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
+    int n = l.size();
+    double dmax = 0;
+    int index = 0;
+
+    for (int i = 1; i<n; i++){
+        point p = l[i-1], q = l[i];
+        double distance = perpendicularDistance(p, q);
+        if (distance > dmax){
+            dmax = distance;
+            index = i;
+        }
+    }
+
+    line ResultLine;
+    if (dmax > epsilon){
+        line RL1, RL2;
+        splitLine(l, RL1, RL2, index);
+        mergeLine(RL1, RL2, ResultLine);
+    }else{
+        return l;
+    }
+    return ResultLine;
+}
+
+void ImgProcessing::splitLine(line &l,  line &l1, line &l2, int split_index) {
+    int n = l.size();
+    for (int i = 0; i<split_index; i++)
+        l1.push_back(l[i]);
+
+    for (int i = split_index; i<n; i++)
+        l2.push_back(l[i]);
+}
+
+void ImgProcessing::mergeLine(line &l1, line &l2, line &result) {
+    for (auto p : l1)
+        result.push_back(p);
+
+    for (auto p: l2)
+        result.push_back(p);
+}
 
 // Pattern B is always one of the predefined patterns of above
 bool operator ==(Pattern& A, Pattern &B){
