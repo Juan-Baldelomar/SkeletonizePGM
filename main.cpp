@@ -12,7 +12,9 @@ int main() {
     imgP.getSkeleton(image.pixels);
     imgP.getPoints(image.pixels);
     imgP.printLines();
-    imgP.DecimateLines(0.001);
+    imgP.DecimateLines(0.5);
+    imgP.printLines();
+    imgP.getSplinesLines();
     imgP.printLines();
     imgP.drawLines(image.pixels);
     image.writeFile("Output/img1.pgm");

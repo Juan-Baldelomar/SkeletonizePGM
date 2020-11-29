@@ -336,6 +336,47 @@ void ImgProcessing::mergeLine(line &l1, line &l2, line &result) {
         result.push_back(p);
 }
 
+
+void ImgProcessing::getSplinesLines() {
+    int n = lines.size();
+    for (int i = 0; i<n; i++){
+        vector<double> x_ = generateXVector(lines[i]);
+        vector<double> f_ = generateYVector(lines[i]);
+        Splines splines(x_, f_);
+        line l = splines.getCurve();
+        lines[i].clear();
+        for (auto p : l)
+            lines[i].push_back(p);
+    }
+}
+
+vector<double> ImgProcessing::generateXVector(line l) {
+    vector<double> x_;
+    for (auto p : l){
+        x_.push_back(p.x);
+    }
+    return x_;
+}
+
+vector<double> ImgProcessing::generateYVector(line l) {
+    vector<double> y_;
+    for (auto p : l){
+        y_.push_back(p.y);
+    }
+    return y_;
+}
+
+void ImgProcessing::getExtremePoints(line l, int &a, int &b) {
+    a = l[0].x;
+    b = l[0].x;
+    for (auto p : l){
+        if (p.x < a)
+            a = p.x;
+        if (p.x > b)
+            b = p.x;
+    }
+}
+
 // Pattern B is always one of the predefined patterns of above
 bool operator ==(Pattern& A, Pattern &B){
     /*cout << "A: " << endl;

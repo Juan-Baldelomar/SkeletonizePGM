@@ -8,6 +8,7 @@
 #include "vector"
 #include "iostream"
 #include <queue>
+#include "Splines.h"
 
 using namespace std;
 
@@ -52,13 +53,23 @@ public:
     void setPatterns();
     char getPattern(Pattern &patt);
     void getSkeleton(vector<vector<pixel>> &pixels);
+
+    //get points and draw them
     void getPoints(vector<vector<pixel>> &pixels);
     void drawLines(vector<vector<pixel>> &pixels);
     void printLines();
+
+    //douglas Peucker
     line DouglasPeucker(line &l, double epsilon);
     void DecimateLines(double epsilon);
     void splitLine(line &l, line &l1, line &l2, int start, int split_index, int end);
     void mergeLine(line &l1, line &l2, line &result);
+
+    //splines
+    void getSplinesLines();
+    vector<double> generateXVector(line l);
+    vector<double> generateYVector(line l);
+    void getExtremePoints(line l, int &a, int &b);
 };
 
 bool operator ==( Pattern& A,  Pattern &B);
