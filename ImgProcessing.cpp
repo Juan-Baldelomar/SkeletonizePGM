@@ -214,6 +214,9 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
     // create queue
     queue<point> cola;
 
+    // sentinel point (NULL POINT)
+    point sentinel(-1, -1);
+
     // find first pixel != 0
     for (int i = 0; i<n; i++){
         for (int j = 0; j<m; j++){
@@ -223,14 +226,22 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
                 pixelsCopy[i][j] = 0;                    // erase point to avoid processing it again
             }
             while(!cola.empty()){
-                point p = cola.front();
-                lines.back().push_back(p);
-
-                int neighborsCount = pushNeighbors(p, pixelsCopy, cola);
-                if (neighborsCount > 1){                // biffurcation reached
-                    lines.push_back(line());            // create new line
-                }
+                lines.push_back(line());                // create new line
+                point p = cola.front();                 // get next headpoint of line
                 cola.pop();
+                while(p!= sentinel){
+                    lines.back().push_back(p);
+                    pixelsCopy[p.x][p.y] = 0;
+                    vector<point> neighbors = getNextPoint(p, pixelsCopy);
+                    p = sentinel;
+                    if (neighbors.size()==1){
+                        p = neighbors[0];
+                    }
+                    else if (neighbors.size() > 1){                // biffurcation reached
+                        for (auto p_n : neighbors)
+                            cola.push(p_n);
+                    }
+                }
             }
         }
     }
@@ -239,24 +250,22 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
         //if a pixel has more than one neighbor  with 255 we reached biffurcation, push all neighbors to queue and set current point as end
 }
 
-int ImgProcessing::pushNeighbors(point center, vector<vector<pixel>> &pixels, queue<point> &cola) {
+vector<point> ImgProcessing::getNextPoint(point &current, vector<vector<pixel>> &pixels) {
     int n = pixels.size(), m = 0;
     if (n>0) m = pixels[0].size();
 
-    int neighborsCount = 0;
+    vector<point> neighbors;
     // review 8_neighbors
     for (int i = -1; i<=1; i++){
         for (int j = -1; j<=1; j++){
-            if (i + center.x >= 0 && i+center.x < n && j + center.y >= 0 && j+center.y < m
-                && pixels[i + center.x][j + center.y] == 255){
+            if (i + current.x >= 0 && i + current.x < n && j + current.y >= 0 && j + current.y < m
+                && pixels[i + current.x][j + current.y] == 255){
 
-                cola.push(point(i+center.x, j+center.y));
-                neighborsCount++;
-                pixels[i+center.x][j+center.y] = 0;                        // erase point to avoid processing it again
+                neighbors.push_back(point(i + current.x, j + current.y));
             }
         }
     }
-    return neighborsCount;
+    return neighbors;
 }
 
 // function to draw the lines that are in the vector<vector<line>> lines
@@ -342,11 +351,13 @@ void ImgProcessing::getSplinesLines() {
     for (int i = 0; i<n; i++){
         vector<double> x_ = generateXVector(lines[i]);
         vector<double> f_ = generateYVector(lines[i]);
-        Splines splines(x_, f_);
-        line l = splines.getCurve();
-        lines[i].clear();
-        for (auto p : l)
-            lines[i].push_back(p);
+        if (x_.size()>1){
+            Splines splines(x_, f_);
+            line l = splines.getCurve();
+            lines[i].clear();
+            for (auto p : l)
+                lines[i].push_back(p);
+        }
     }
 }
 
@@ -421,4 +432,8 @@ bool operator ==(const specialPattern& A, const specialPattern &B){
         }
     }
     return true;
+}
+
+bool operator !=(point &p, point &q){
+    return p.x != q.x || p.y != q.y;
 }

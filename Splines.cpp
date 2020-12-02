@@ -93,6 +93,10 @@ Splines::Splines(vector<double> &x_, vector<double> &f_) {
         xsegment_.clear();
         fsegment_.clear();
 
+        while( i + 1 < n && x_[i] == x_[i+1]){
+
+        }
+
         stack<int> stk;
         while( i+1 < n && x_[i] >= x_[i+1]){
             if (x_[i] != x_[i+1])               //ignore points with same x (not a funcion)
@@ -117,7 +121,7 @@ Splines::Splines(vector<double> &x_, vector<double> &f_) {
 
 void Splines::buildSplineSegment(vector<double> &x_, vector<double> &f_) {
     int n = x_.size();
-    if (n == 0) return;
+    if (n <= 1) return;
 
     this->x_.push_back(vector<double>());
     this->f_.push_back(vector<double>());
@@ -150,7 +154,7 @@ void Splines::buildSplineSegment(vector<double> &x_, vector<double> &f_) {
                 A[index][index + 1] = h_ip/6.0;
             }
             // 6/h^2 * (f_{i+1} -2 f_i + f_{i-1})
-            b[index] = (1/h_ip) * (f_[i+1] - f_[i]) - 1/h_i * (f_[i] - f_[i+1]);
+            b[index] = (1/h_ip) * (f_[i+1] - f_[i]) - 1/h_i * (f_[i] - f_[i-1]);
         }
     }else if (n-2 == 1){
         double h_i = x_[1] - x_[0];
@@ -171,19 +175,19 @@ void Splines::buildSplineSegment(vector<double> &x_, vector<double> &f_) {
 }
 
 double Splines::P(double x, int i, int row) {
-    int n = x_.size();
+    int n = x_[0].size();
 
     if (n == 1) return f_[row][0];
 
     double h = x_[row][i] - x_[row][i-1];
     double a, b, c, d, e, f;
 
-    a = (1/(6*h)) * pow(x_[row][i] - x, 3) * M[row][i-1];
-    b = (1/(6*h)) * pow(x - x_[row][i-1], 3) * M[row][i];
+    a = (1.0/(6*h)) * pow(x_[row][i] - x, 3) * M[row][i-1];
+    b = (1.0/(6*h)) * pow(x - x_[row][i-1], 3) * M[row][i];
     c = x/h * (f_[row][i] - f_[row][i-1]);
-    d = -x/6 * (M[row][i] - M[row][i-1]) * h;
+    d = -x/6.0 * (M[row][i] - M[row][i-1]) * h;
     e = 1/h * (x_[row][i] * f_[row][i-1] - x_[row][i-1] * f_[row][i]);
-    f = -1/6 * (x_[row][i] * M[row][i-1] - x_[row][i-1] * M[row][i]) * h;
+    f = -1/6.0 * (x_[row][i] * M[row][i-1] - x_[row][i-1] * M[row][i]) * h;
 
     return a + b + c + d + e + f;
 }

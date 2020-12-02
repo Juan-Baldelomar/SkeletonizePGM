@@ -42,7 +42,6 @@ class ImgProcessing{
 
 private:
     vector<vector<pixel>> extractPixels(vector<vector<pixel>> &pixels);
-    int pushNeighbors(point center, vector<vector<pixel>> &pixels, queue<point>&cola);
 
 public:
     Pattern A, B, C, D, E, F, G, H, I, J, K, L, M, N, MIDDLE;
@@ -56,6 +55,7 @@ public:
 
     //get points and draw them
     void getPoints(vector<vector<pixel>> &pixels);
+    vector<point> getNextPoint(point &current, vector<vector<pixel>> &pixels);
     void drawLines(vector<vector<pixel>> &pixels);
     void printLines();
 
@@ -74,5 +74,6 @@ public:
 
 bool operator ==( Pattern& A,  Pattern &B);
 bool operator ==(const specialPattern& A, const specialPattern &B);
+bool operator !=(point &p, point &q);
 
 #endif //PROYECTO_PA1_IMGPROCESSING_H
