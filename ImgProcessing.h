@@ -9,17 +9,14 @@
 #include "iostream"
 #include <queue>
 #include "Splines.h"
+#include "point.h"
+#include "LinearSpline.h"
 
 using namespace std;
 
 typedef unsigned char pixel;
 
-struct point{
-    int x;
-    int y;
-    point(){};
-    point(int x, int y){ this->x = x; this->y = y; };
-};
+
 
 struct Pattern{
 public:
@@ -55,6 +52,7 @@ public:
 
     //get points and draw them
     void getPoints(vector<vector<pixel>> &pixels);
+    void cleanLines();
     vector<point> getNextPoint(point &current, vector<vector<pixel>> &pixels);
     void drawLines(vector<vector<pixel>> &pixels);
     void printLines();

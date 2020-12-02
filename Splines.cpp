@@ -78,11 +78,9 @@ Splines::Splines(vector<double> &x_, vector<double> &f_) {
     vector<double> xsegment_, fsegment_;
     int i = 0;
     while(i + 1<n){
-        while (i + 1 < n && x_[i] <= x_[i + 1]) {
-            if (x_[i] != x_[i+1]){
-                xsegment_.push_back(x_[i]);
-                fsegment_.push_back(f_[i]);
-            }
+        while (i + 1 < n && x_[i] < x_[i + 1]) {
+            xsegment_.push_back(x_[i]);
+            fsegment_.push_back(f_[i]);
             i++;
         }
         if (i<n && xsegment_.size() > 0){
@@ -94,13 +92,21 @@ Splines::Splines(vector<double> &x_, vector<double> &f_) {
         fsegment_.clear();
 
         while( i + 1 < n && x_[i] == x_[i+1]){
-
+            xsegment_.push_back(x_[i]);
+            fsegment_.push_back(f_[i]);
+            i++;
         }
+        if (i<n && xsegment_.size() > 0){
+            xsegment_.push_back(x_[i]);
+            fsegment_.push_back(f_[i]);
+        }
+        rotateAxixSplineSegment(fsegment_, xsegment_);
+        xsegment_.clear();
+        fsegment_.clear();
 
         stack<int> stk;
-        while( i+1 < n && x_[i] >= x_[i+1]){
-            if (x_[i] != x_[i+1])               //ignore points with same x (not a funcion)
-                stk.push(i);
+        while( i+1 < n && x_[i] > x_[i+1]){
+            stk.push(i);
             i++;
         }
         if (i <n && stk.size()>0){
@@ -174,6 +180,64 @@ void Splines::buildSplineSegment(vector<double> &x_, vector<double> &f_) {
     M.back().push_back(0);               //M_n = 0
 }
 
+
+void Splines::rotateAxixSplineSegment(vector<double> &x_, vector<double> &f_) {
+    int n = x_.size();
+    if (n <= 1) return;
+
+    this->Rx_.push_back(vector<double>());
+    this->Rf_.push_back(vector<double>());
+    for (int i = 0; i<n; i++){
+        this->Rx_.back().push_back(x_[i]);
+        this->Rf_.back().push_back(f_[i]);
+    }
+
+    if (n<2) return;
+
+    //build system
+    vector<vector<double>> A(n-2, vector<double>(n-2, 0));
+    vector<double> X(n-2, 0);
+    vector<double> b(n-2, 0);
+
+    if (n-2 > 1){
+        for (int i = 1; i<n-1; i++){
+            double h_i = x_[i] - x_[i-1];
+            double h_ip = x_[i+1] - x_[i];
+            int index = i-1;                            //i starts in 1, but matrix index starts in 0
+            if (index == 0){
+                A[index][0] = (h_i + h_ip)/3.0;
+                A[index][1] = h_ip/6.0;
+            }else if (index == n-3){
+                A[index][index-1] = h_i/6.0;
+                A[index][index] = (h_i + h_ip)/3.0;
+            }else{
+                A[index][index - 1] = h_i/6.0;
+                A[index][index] = (h_i + h_ip)/3.0;;
+                A[index][index + 1] = h_ip/6.0;
+            }
+            // 6/h^2 * (f_{i+1} -2 f_i + f_{i-1})
+            b[index] = (1/h_ip) * (f_[i+1] - f_[i]) - 1/h_i * (f_[i] - f_[i-1]);
+        }
+    }else if (n-2 == 1){
+        double h_i = x_[1] - x_[0];
+        double h_ip = x_[2] - x_[1];
+        A[0][0] = (h_i + h_ip)/3.0;
+        b[0] = (1/h_ip) * (f_[2] - f_[1]) - 1/h_i * (f_[1] - f_[2]);
+    }
+
+    // calculate M
+
+    Eliminacion_Gaussiana(A, b, X);
+    RM.push_back(vector<double>());
+    RM.back().push_back(0);             //M_0 = 0
+    for (double sol : X)
+        RM.back().push_back(sol);
+
+    RM.back().push_back(0);               //M_n = 0
+}
+
+
+
 double Splines::P(double x, int i, int row) {
     int n = x_[0].size();
 
@@ -192,22 +256,24 @@ double Splines::P(double x, int i, int row) {
     return a + b + c + d + e + f;
 }
 
-//same method as P but when x_i > x_{i+1}
-/*double Splines::reverseP(double x, int i) {
-    int n = x_.size();
-    if (n == 1) return f_[0];
-    double h = x_[i-1] - x_[i];
+double Splines::RP(double x, int i, int row) {
+    int n = Rx_[0].size();
+
+    if (n == 1) return Rf_[row][0];
+
+    double h = Rx_[row][i] - Rx_[row][i-1];
     double a, b, c, d, e, f;
 
-    a = (1/(6*h)) * pow(x_[i-1] - x, 3) * M[i];
-    b = (1/(6*h)) * pow(x - x_[i], 3) * M[i-1];
-    c = x/h * (f_[i-1] - f_[i]);
-    d = -x/6 * (M[i-1] - M[i]) * h;
-    e = 1/h * (x_[i-1] * f_[i] - x_[i] * f_[i-1]);
-    f = -1/6 * (x_[i-1] * M[i] - x_[i] * M[i-1]) * h;
+    a = (1.0/(6*h)) * pow(Rx_[row][i] - x, 3) * RM[row][i-1];
+    b = (1.0/(6*h)) * pow(x - Rx_[row][i-1], 3) * RM[row][i];
+    c = x/h * (Rf_[row][i] - Rf_[row][i-1]);
+    d = -x/6.0 * (RM[row][i] - RM[row][i-1]) * h;
+    e = 1/h * (Rx_[row][i] * Rf_[row][i-1] - Rx_[row][i-1] * Rf_[row][i]);
+    f = -1/6.0 * (Rx_[row][i] * RM[row][i-1] - Rx_[row][i-1] * RM[row][i]) * h;
 
     return a + b + c + d + e + f;
-}*/
+}
+
 
 vector<point> Splines::getCurve() {
     int n = x_.size();
@@ -216,11 +282,33 @@ vector<point> Splines::getCurve() {
         for (int i = 1; i<x_[row].size(); i++){
             int a = x_[row][i-1];
             int b = x_[row][i];
-            int x = a;
+            double x = a;
             while(x<=b){
                 int fx = P(x, i, row);
                 l.push_back(point(x, fx));
-                x++;
+                x+= 1/10.0;
+            }
+        }
+    }
+    return  l;
+}
+
+vector<point> Splines::getVerticalCurve(){
+    int n = Rx_.size();
+    line l;
+    for (int row = 0; row<n; row++){
+        for (int i = 1; i<Rx_[row].size(); i++){
+            int a = Rx_[row][i-1] < Rx_[row][i] ? Rx_[row][i-1] : Rx_[row][i] ;
+            int b = Rx_[row][i] > Rx_[row][i-1] ? Rx_[row][i] : Rx_[row][i-1] ;
+
+            double x = a;
+            int fx = RP(x, i, row);
+            l.push_back(point(fx, x));
+            while(x<=b){
+                //cout << "cycle a: " << a << "b: " << b << endl;
+                fx = RP(x, i, row);
+                l.push_back(point(fx, x));
+                x+= 1/10.0;
             }
         }
     }

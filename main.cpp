@@ -22,11 +22,12 @@ int main() {
     imgP.getSkeleton(image.pixels);
     imgP.getPoints(image.pixels);
     imgP.printLines();
-    //imgP.DecimateLines(0.5);
-    //imgP.printLines();
+    imgP.DecimateLines(0.5);
+    imgP.printLines();
     imgP.getSplinesLines();
     imgP.printLines();
     imgP.drawLines(image.pixels);
+    //cout << image.pixels << endl;
     image.writeFile("Output/img1.pgm");
     return 0;
 }

@@ -7,10 +7,16 @@
 #include "math.h"
 
 
-double perpendicularDistance(point p, point q){
-    double delta_x = p.x - q.x;
-    double delta_y = p.y - q.y;
-    return sqrt(delta_x*delta_x + delta_y*delta_y);
+double perpendicularDistance(point p, point l_start, point l_end){
+    double delta_x = l_start.x - l_end.x;
+    double delta_y = l_start.y - l_end.y;
+    double m = delta_y/delta_x;
+    double p0 = l_start.y - m * l_start.x;
+
+    double num = fabs(m*p.x - p.y + p0);               //eq Ax + By + C = 0: A = m, B = -1, C = p0
+    double den = sqrt(m * m + 1);                      // sqrt(A^2 + B^2)
+
+    return num/den;
 }
 
 void cleanPixels(vector<vector<pixel>>&pixels){
@@ -212,7 +218,7 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
     vector<vector<pixel>> pixelsCopy = extractPixels(pixels);
 
     // create queue
-    queue<point> cola;
+    queue<point> cola, startPoints;             //startPoints is a queue that contains the headPoint every time a biffurcation is reached to avoid single points 'lines'
 
     // sentinel point (NULL POINT)
     point sentinel(-1, -1);
@@ -221,33 +227,38 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
     for (int i = 0; i<n; i++){
         for (int j = 0; j<m; j++){
             if (pixelsCopy[i][j] == 255){
-                lines.push_back(line());                 // push new line
                 cola.push(point(i, j));               // push point in queue
-                pixelsCopy[i][j] = 0;                    // erase point to avoid processing it again
             }
             while(!cola.empty()){
-                lines.push_back(line());                // create new line
-                point p = cola.front();                 // get next headpoint of line
+                lines.push_back(line());                            // create new line
+                if (!startPoints.empty())
+                    lines.back().push_back(startPoints.front());
+
+                point p = cola.front();                             // get next headpoint of line
                 cola.pop();
+                if (!startPoints.empty())
+                    startPoints.pop();
                 while(p!= sentinel){
                     lines.back().push_back(p);
                     pixelsCopy[p.x][p.y] = 0;
                     vector<point> neighbors = getNextPoint(p, pixelsCopy);
-                    p = sentinel;
+                                                   // no more points in current line
                     if (neighbors.size()==1){
                         p = neighbors[0];
+                        continue;
                     }
                     else if (neighbors.size() > 1){                // biffurcation reached
-                        for (auto p_n : neighbors)
+                        for (auto p_n : neighbors) {
                             cola.push(p_n);
+                            startPoints.push(p);
+                        }
                     }
+                    p = sentinel;
                 }
             }
         }
     }
-
-    // start traversing line following 255 values and setting to 0 values already traversed
-        //if a pixel has more than one neighbor  with 255 we reached biffurcation, push all neighbors to queue and set current point as end
+    cleanLines();
 }
 
 vector<point> ImgProcessing::getNextPoint(point &current, vector<vector<pixel>> &pixels) {
@@ -266,6 +277,17 @@ vector<point> ImgProcessing::getNextPoint(point &current, vector<vector<pixel>> 
         }
     }
     return neighbors;
+}
+
+void ImgProcessing::cleanLines() {
+    vector<line> tmpLines;
+    for (auto l:lines)
+        if (l.size()>2)
+            tmpLines.push_back(l);
+
+    lines.clear();
+    for (auto l:tmpLines)
+        lines.push_back(l);
 }
 
 // function to draw the lines that are in the vector<vector<line>> lines
@@ -291,10 +313,12 @@ void ImgProcessing::printLines() {
 void ImgProcessing::DecimateLines(double epsilon) {
     int n = lines.size();
     for (int i = 0; i<n; i++){
-        line l = DouglasPeucker(lines[i], epsilon);
-        lines[i].clear();
-        for (auto p: l)
-            lines[i].push_back(p);
+        if (lines[i].size()>1){
+            line l = DouglasPeucker(lines[i], epsilon);
+            lines[i].clear();
+            for (auto p: l)
+                lines[i].push_back(p);
+        }
     }
 }
 
@@ -303,9 +327,9 @@ line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
     double dmax = 0;
     int index = 0;
 
-    for (int i = 1; i<n; i++){
-        point p = l[i-1], q = l[i];
-        double distance = perpendicularDistance(p, q);
+    for (int i = 1; i<n-1; i++){
+        point p = l[i];
+        double distance = perpendicularDistance(p, l[0], l[n-1]);
         if (distance > dmax){
             dmax = distance;
             index = i;
@@ -315,15 +339,16 @@ line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
     line ResultLine;
     if (dmax > epsilon){
         line RL1, RL2;
-        splitLine(l, RL1, RL2, 1, index, n);
+        splitLine(l, RL1, RL2, 0, index, n);
 
         RL1 = DouglasPeucker(RL1, epsilon);
+        RL1.pop_back();
         RL2 = DouglasPeucker(RL2, epsilon);
 
         mergeLine(RL1, RL2, ResultLine);
     }else{
-        for (auto p:l)
-            ResultLine.push_back(p);
+        ResultLine.push_back(l[0]);
+        ResultLine.push_back(l[n-1]);
     }
     return ResultLine;
 }
@@ -345,6 +370,14 @@ void ImgProcessing::mergeLine(line &l1, line &l2, line &result) {
         result.push_back(p);
 }
 
+/*void ImgProcessing::getSplinesLines() {
+    int n = lines.size();
+    LinearSpline sp;
+    for (int i = 0; i<n; i++){
+        lines[i] = sp.getSplineCurve(lines[i]);
+    }
+}*/
+
 
 void ImgProcessing::getSplinesLines() {
     int n = lines.size();
@@ -355,6 +388,10 @@ void ImgProcessing::getSplinesLines() {
             Splines splines(x_, f_);
             line l = splines.getCurve();
             lines[i].clear();
+            for (auto p : l)
+                lines[i].push_back(p);
+
+            l = splines.getVerticalCurve();
             for (auto p : l)
                 lines[i].push_back(p);
         }
