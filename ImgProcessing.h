@@ -63,6 +63,10 @@ public:
     void splitLine(line &l, line &l1, line &l2, int start, int split_index, int end);
     void mergeLine(line &l1, line &l2, line &result);
 
+    // visvalingam
+    void DecimateVisvalingam(double epsilon);
+    void visvalingam(line &l, double epsilon);
+
     //splines
     void getSplinesLines();
     vector<double> generateXVector(line l);

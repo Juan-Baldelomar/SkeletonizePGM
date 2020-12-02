@@ -19,6 +19,10 @@ double perpendicularDistance(point p, point l_start, point l_end){
     return num/den;
 }
 
+double getTriangleArea(point p, point q, point r){
+    return fabs((p.x * (q.y-r.y) + q.x * (r.y - p.y) + r.x * (p.y - q.y)) / 2);
+}
+
 void cleanPixels(vector<vector<pixel>>&pixels){
     int n = pixels.size(), m = 0;
     if (n>0) m = pixels[0].size();
@@ -213,52 +217,49 @@ void ImgProcessing::getPoints(vector<vector<pixel>> &pixels) {
 
     //clean previous points
     lines.clear();
-
     //create copy of pixels to work with
     vector<vector<pixel>> pixelsCopy = extractPixels(pixels);
-
     // create queue
     queue<point> cola, startPoints;             //startPoints is a queue that contains the headPoint every time a biffurcation is reached to avoid single points 'lines'
-
     // sentinel point (NULL POINT)
     point sentinel(-1, -1);
 
     // find first pixel != 0
     for (int i = 0; i<n; i++){
         for (int j = 0; j<m; j++){
-            if (pixelsCopy[i][j] == 255){
-                cola.push(point(i, j));               // push point in queue
-            }
+            if (pixelsCopy[i][j] == 255)
+                cola.push(point(i, j));                                     // push point in queue
+
             while(!cola.empty()){
-                lines.push_back(line());                            // create new line
+                lines.push_back(line());                                       // create new line
                 if (!startPoints.empty())
                     lines.back().push_back(startPoints.front());
 
-                point p = cola.front();                             // get next headpoint of line
-                cola.pop();
-                if (!startPoints.empty())
-                    startPoints.pop();
+                point p = cola.front(); cola.pop();                            // get next headpoint of line
+                if (!startPoints.empty()) startPoints.pop();
+
                 while(p!= sentinel){
                     lines.back().push_back(p);
                     pixelsCopy[p.x][p.y] = 0;
                     vector<point> neighbors = getNextPoint(p, pixelsCopy);
-                                                   // no more points in current line
+
                     if (neighbors.size()==1){
                         p = neighbors[0];
                         continue;
-                    }
-                    else if (neighbors.size() > 1){                // biffurcation reached
+                    } else if (neighbors.size() > 1){                // biffurcation reached
                         for (auto p_n : neighbors) {
                             cola.push(p_n);
                             startPoints.push(p);
                         }
                     }
-                    p = sentinel;
-                }
-            }
-        }
-    }
-    cleanLines();
+                    p = sentinel;                                  // no more points in current line
+
+                } // while p!= sentinel
+            } // while (cola! empty)
+        } // for j
+    }  // for i
+
+    cleanLines();      //clean noise lines
 }
 
 vector<point> ImgProcessing::getNextPoint(point &current, vector<vector<pixel>> &pixels) {
@@ -322,6 +323,15 @@ void ImgProcessing::DecimateLines(double epsilon) {
     }
 }
 
+void ImgProcessing::DecimateVisvalingam(double epsilon){
+    int n = lines.size();
+    for (int i = 0; i<n; i++){
+        if (lines[i].size()>1){
+            visvalingam(lines[i], epsilon);
+        }
+    }
+}
+
 line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
     int n = l.size();
     double dmax = 0;
@@ -342,9 +352,9 @@ line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
         splitLine(l, RL1, RL2, 0, index, n);
 
         RL1 = DouglasPeucker(RL1, epsilon);
-        RL1.pop_back();
         RL2 = DouglasPeucker(RL2, epsilon);
 
+        RL1.pop_back();                                     //delete last element
         mergeLine(RL1, RL2, ResultLine);
     }else{
         ResultLine.push_back(l[0]);
@@ -355,7 +365,7 @@ line ImgProcessing::DouglasPeucker(line &l, double epsilon) {
 
 void ImgProcessing::splitLine(line &l,  line &l1, line &l2, int start, int split_index, int end) {
     int n = l.size();
-    for (int i = start; i<split_index; i++)
+    for (int i = start; i<=split_index; i++)
         l1.push_back(l[i]);
 
     for (int i = split_index; i<end && i < n; i++)
@@ -368,6 +378,22 @@ void ImgProcessing::mergeLine(line &l1, line &l2, line &result) {
 
     for (auto p: l2)
         result.push_back(p);
+}
+
+void ImgProcessing::visvalingam(line &l, double epsilon){
+    int n = l.size();
+    line result;
+    int i = 2;
+    while(i < l.size()){
+        point p = l[i-2], q = l[i-1], r = l[i];
+        double area = getTriangleArea(p, q, r);
+        if (area < epsilon){
+            auto it = l.begin()  + (i-1);
+            l.erase(it);
+        }else{
+            i++;
+        }
+    }
 }
 
 /*void ImgProcessing::getSplinesLines() {
