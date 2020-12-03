@@ -12,10 +12,14 @@ int main() {
     imgP.getPoints(image.pixels);
     imgP.printLines();
     imgP.DecimateVisvalingam(0.5);
-    //imgP.printLines();
-    //imgP.getSplinesLines();
-    //imgP.printLines();
+    imgP.printLines();
+    imgP.getSplinesLines();
+    imgP.printLines();
     imgP.drawLines(image.pixels);
+
+    imgP.hausdorff();
+
+    cout << imgP.errors << endl;
     image.writeFile("Output/img1.pgm");
     return 0;
 }

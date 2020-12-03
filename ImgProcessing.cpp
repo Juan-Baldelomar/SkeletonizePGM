@@ -5,7 +5,7 @@
 #include "ImgProcessing.h"
 #include "Tools.h"
 #include "math.h"
-
+#include "limits"
 
 double perpendicularDistance(point p, point l_start, point l_end){
     double delta_x = l_start.x - l_end.x;
@@ -21,6 +21,13 @@ double perpendicularDistance(point p, point l_start, point l_end){
 
 double getTriangleArea(point p, point q, point r){
     return fabs((p.x * (q.y-r.y) + q.x * (r.y - p.y) + r.x * (p.y - q.y)) / 2);
+}
+
+double distance(point p, point q){
+    double delta_x = p.x - q.x;
+    double delta_y = p.y - q.y;
+
+    return sqrt(delta_x * delta_x + delta_y * delta_y);
 }
 
 void cleanPixels(vector<vector<pixel>>&pixels){
@@ -313,21 +320,26 @@ void ImgProcessing::printLines() {
 
 void ImgProcessing::DecimateLines(double epsilon) {
     int n = lines.size();
+    originalLines.clear();
     for (int i = 0; i<n; i++){
         if (lines[i].size()>1){
             line l = DouglasPeucker(lines[i], epsilon);
             lines[i].clear();
             for (auto p: l)
                 lines[i].push_back(p);
+
+            originalLines.push_back(lines[i]);
         }
     }
 }
 
 void ImgProcessing::DecimateVisvalingam(double epsilon){
     int n = lines.size();
+    originalLines.clear();
     for (int i = 0; i<n; i++){
         if (lines[i].size()>1){
             visvalingam(lines[i], epsilon);
+            originalLines.push_back(lines[i]);
         }
     }
 }
@@ -394,6 +406,49 @@ void ImgProcessing::visvalingam(line &l, double epsilon){
             i++;
         }
     }
+}
+
+// max { sup x inf y d(x,y), sup y inf x d(x, y) }
+void ImgProcessing::hausdorff() {
+    int n = lines.size();
+    int m = originalLines.size();
+
+
+    for (int i = 0; i<n; i++){
+        line l1 = lines[i];
+        line l2 = originalLines[i];
+        double max;
+        double sup = 0;
+
+        for (point p : l1){
+            double inf = numeric_limits<double>::max();
+            for (point q : l2){
+                double d = distance(p, q);
+                if (inf > d)
+                    inf = d;
+            }
+            if (sup < inf)
+                sup = inf;
+        }
+
+        max = sup;
+        sup = 0;
+        for (point q : l2){
+            double inf = numeric_limits<double>::max();
+            for (point p : l1){
+                double d = distance(p, q);
+                if (inf > d)
+                    inf = d;
+            }
+            if (sup < inf)
+                sup = inf;
+        }
+        if (max < sup)
+            max = sup;
+
+        errors.push_back(max);
+    }
+
 }
 
 /*void ImgProcessing::getSplinesLines() {

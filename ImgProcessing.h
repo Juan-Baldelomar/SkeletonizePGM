@@ -43,7 +43,8 @@ private:
 public:
     Pattern A, B, C, D, E, F, G, H, I, J, K, L, M, N, MIDDLE;
     specialPattern O, P, Q, S;
-    vector<line> lines;
+    vector<line> lines, originalLines;
+    vector<double> errors;
 
     ImgProcessing();
     void setPatterns();
@@ -66,6 +67,8 @@ public:
     // visvalingam
     void DecimateVisvalingam(double epsilon);
     void visvalingam(line &l, double epsilon);
+
+    void hausdorff();
 
     //splines
     void getSplinesLines();
